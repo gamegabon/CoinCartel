@@ -20,11 +20,11 @@ et le code doit faire minimum 120ligne
 tu dois te xonformer à l’exact du prompt et supprimer dans prompt de base pour ne prendre que celui si
 """
 
-# ================== CONFIGURATION GEMINI 2.0 ==================
+# ================== CONFIGURATION GEMINI ==================
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Utilisation du modèle le plus récent : Gemini 2.0 Flash Experimental
-MODEL_NAME = "gemini-2.0-flash-exp" 
+# Retour au modèle 1.5 Flash (plus de quota) avec le nom correct
+MODEL_NAME = "models/gemini-1.5-flash" 
 
 SAFETY_SETTINGS = {
     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
@@ -53,7 +53,7 @@ app = Flask(__name__)
 
 @app.route("/", methods=["GET"])
 def home():
-    return "CoinCartelBot Gemini 2.0 is Live", 200
+    return "CoinCartelBot is Running", 200
 
 @app.route(f"/{TELEGRAM_TOKEN}", methods=["POST"])
 def telegram_webhook():
@@ -67,7 +67,7 @@ def telegram_webhook():
 # ================== GESTIONNAIRES ==================
 @bot.message_handler(commands=["start"])
 def start(message):
-    bot.reply_to(message, "✅ **CoinCartelBot (Gemini 2.0) activé.** À vos ordres. ✨")
+    bot.reply_to(message, "✅ **CoinCartelBot activé.** À vos ordres. ✨")
 
 @bot.message_handler(content_types=["text"])
 def handle_text(message):
@@ -75,22 +75,23 @@ def handle_text(message):
         bot.send_chat_action(message.chat.id, 'typing')
         chat = get_chat(message.from_user.id)
         
-        # Envoi de la requête au nouveau modèle
         response = chat.send_message(message.text, safety_settings=SAFETY_SETTINGS)
         
         if response.text:
             bot.reply_to(message, response.text)
         else:
-            bot.reply_to(message, "⚠️ Réponse vide du modèle 2.0.")
+            bot.reply_to(message, "⚠️ Le modèle n'a pas pu générer de texte.")
             
     except Exception as e:
-        print(f"ERREUR : {e}")
-        bot.reply_to(message, f"⚠️ Erreur technique (Gemini 2.0) : {str(e)[:150]}")
+        error_msg = str(e)
+        if "429" in error_msg:
+            bot.reply_to(message, "⚠️ Trop de messages ! Attendez une minute avant de recommencer.")
+        else:
+            bot.reply_to(message, f"⚠️ Erreur technique : {error_msg[:100]}")
 
 # ================== LANCEMENT ==================
 if __name__ == "__main__":
     bot.remove_webhook()
-    # Assurez-vous que l'URL Render est correcte
     WEBHOOK_URL = f"https://coincartel.onrender.com/{TELEGRAM_TOKEN}"
     bot.set_webhook(url=WEBHOOK_URL)
     

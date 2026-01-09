@@ -8,7 +8,7 @@ from flask import Flask
 # --- CONFIGURATION DES CLÉS ---
 TELEGRAM_TOKEN = os.environ.get(
     "TELEGRAM_TOKEN",
-    "8226273057:AAFhvZnAoc0S9OehhngBtDP8DeO12F2mxYU"
+    "8226273057:AAE25ZZsviJcX5njaWAAN7N_iM1dXqVJw4o"
 )
 GEMINI_API_KEY = os.environ.get(
     "GEMINI_API_KEY",

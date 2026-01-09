@@ -6,7 +6,7 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 # ================== CONFIGURATION ==================
 TELEGRAM_TOKEN = "8226273057:AAE25ZZsviJcX5njaWAAN7N_iM1dXqVJw4o"
-GEMINI_API_KEY = "AIzaSyBlgzYmiBG-xivYsJfLJ5PRtT8nyc1oTHE"
+GEMINI_API_KEY = "AIzaSyClMi5Tb8kB-KeJw_zCpzjWExU8NUr_86E"
 
 # Utilisation du modèle le plus récent et stable en 2026
 # Gemini 2.5 Flash offre 15 RPM (requêtes par minute) en gratuit

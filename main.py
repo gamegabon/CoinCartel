@@ -4,12 +4,16 @@ import threading
 import telebot
 import google.generativeai as genai
 from flask import Flask
-from telebot import types
 
 # --- CONFIGURATION DES CLÉS ---
-# Il est fortement conseillé d'utiliser les variables d'environnement sur Render
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "8226273057:AAFhvZnAoc0S9OehhngBtDP8DeO12F2mxYU")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyACu8JHG-2WLAVX6EVjEy4iXW1odWoTD4o")
+TELEGRAM_TOKEN = os.environ.get(
+    "TELEGRAM_TOKEN",
+    "8226273057:AAFhvZnAoc0S9OehhngBtDP8DeO12F2mxYU"
+)
+GEMINI_API_KEY = os.environ.get(
+    "GEMINI_API_KEY",
+    "AIzaSyACu8JHG-2WLAVX6EVjEy4iXW1odWoTD4o"
+)
 
 # --- CONFIGURATION IA GEMINI ---
 SYSTEM_PROMPT = """
@@ -24,12 +28,13 @@ tu dois te xonformer à l’exact du prompt et supprimer dans prompt de base pou
 """
 
 genai.configure(api_key=GEMINI_API_KEY)
+
 model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
     system_instruction=SYSTEM_PROMPT
 )
 
-# --- CONFIGURATION BOT TELEGRAM ---
+# --- BOT TELEGRAM ---
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 user_chats = {}
 
@@ -40,29 +45,31 @@ def get_chat_session(user_id):
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    welcome_msg = "👋 **Bienvenue !** Je suis prêt à vous aider. /reset pour recommencer."
-    bot.reply_to(message, welcome_msg, parse_mode='Markdown')
+    bot.reply_to(message, "👋 Bot prêt.")
 
 @bot.message_handler(commands=['reset'])
 def reset_history(message):
-    user_id = message.from_user.id
-    if user_id in user_chats:
-        del user_chats[user_id]
-    bot.reply_to(message, "🔄 Mémoire réinitialisée !")
+    user_chats.pop(message.from_user.id, None)
+    bot.reply_to(message, "🔄 Mémoire réinitialisée.")
 
-@bot.message_handler(func=lambda message: True)
+# 🔥 HANDLER CORRIGÉ
+@bot.message_handler(content_types=['text'])
 def handle_ai_chat(message):
-    user_id = message.from_user.id
-    bot.send_chat_action(message.chat.id, 'typing')
     try:
-        chat = get_chat_session(user_id)
+        chat = get_chat_session(message.from_user.id)
         response = chat.send_message(message.text)
-        bot.reply_to(message, response.text, parse_mode='Markdown')
+
+        if not response or not response.text:
+            bot.reply_to(message, "🤖 Réponse vide. Réessaie.")
+            return
+
+        bot.reply_to(message, response.text)
+
     except Exception as e:
-        print(f"Erreur: {e}")
+        print("ERREUR GEMINI / TELEGRAM :", e)
         bot.reply_to(message, "⚠️ Erreur technique. Réessayez !")
 
-# --- CONFIGURATION FLASK (Pour Render) ---
+# --- FLASK (Render) ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -70,19 +77,15 @@ def health_check():
     return "Bot is alive!", 200
 
 def run_bot():
-    print("🚀 Bot Telegram démarré...")
     while True:
         try:
-            bot.polling(none_stop=True, interval=0, timeout=20)
+            bot.polling(none_stop=True, timeout=20)
         except Exception as e:
-            print(f"Erreur polling: {e}")
+            print("ERREUR POLLING :", e)
             time.sleep(5)
 
-# --- POINT D'ENTRÉE ---
 if __name__ == "__main__":
-    # Lancement du bot dans un thread séparé
     threading.Thread(target=run_bot, daemon=True).start()
-    
-    # Lancement de Flask sur le port requis par Render
     port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)    port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)

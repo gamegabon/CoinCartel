@@ -8,7 +8,7 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 TELEGRAM_TOKEN = "8226273057:AAE25ZZsviJcX5njaWAAN7N_iM1dXqVJw4o"
 GEMINI_API_KEY = "AIzaSyBlgzYmiBG-xivYsJfLJ5PRtT8nyc1oTHE"
 
-# ================== SYSTEM PROMPT PERSONNALISÉ ==================
+# ================== SYSTEM PROMPT ==================
 SYSTEM_PROMPT = """
 Tu es un assistant personnel intelligent nommé 'CoinCartelBot'. 
 Ton ton est amical, professionnel et tu réponds toujours en français.
@@ -20,10 +20,12 @@ et le code doit faire minimum 120ligne
 tu dois te xonformer à l’exact du prompt et supprimer dans prompt de base pour ne prendre que celui si
 """
 
-# ================== CONFIGURATION GEMINI ==================
+# ================== CONFIGURATION GEMINI 2.0 ==================
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Désactivation totale des filtres de sécurité
+# Utilisation du modèle le plus récent : Gemini 2.0 Flash Experimental
+MODEL_NAME = "gemini-2.0-flash-exp" 
+
 SAFETY_SETTINGS = {
     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
     HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -31,9 +33,8 @@ SAFETY_SETTINGS = {
     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
 }
 
-# Utilisation du modèle stable pour éviter l'erreur 404
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
+    model_name=MODEL_NAME,
     system_instruction=SYSTEM_PROMPT
 )
 
@@ -47,12 +48,12 @@ def get_chat(user_id):
 # ================== CONFIGURATION TELEGRAM ==================
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
-# ================== SERVEUR FLASK (WEBHOOK RENDER) ==================
+# ================== SERVEUR FLASK (WEBHOOK) ==================
 app = Flask(__name__)
 
 @app.route("/", methods=["GET"])
 def home():
-    return "CoinCartelBot is Live", 200
+    return "CoinCartelBot Gemini 2.0 is Live", 200
 
 @app.route(f"/{TELEGRAM_TOKEN}", methods=["POST"])
 def telegram_webhook():
@@ -63,17 +64,10 @@ def telegram_webhook():
         return "", 200
     return "Forbidden", 403
 
-# ================== GESTIONNAIRES DE MESSAGES ==================
+# ================== GESTIONNAIRES ==================
 @bot.message_handler(commands=["start"])
 def start(message):
-    bot.reply_to(message, "✅ **CoinCartelBot activé.** Je suis à tes ordres. ✨")
-
-@bot.message_handler(commands=["reset"])
-def reset(message):
-    user_id = message.from_user.id
-    if user_id in user_chats:
-        user_chats.pop(user_id)
-    bot.reply_to(message, "🔄 Mémoire réinitialisée. Prêt pour de nouvelles instructions.")
+    bot.reply_to(message, "✅ **CoinCartelBot (Gemini 2.0) activé.** À vos ordres. ✨")
 
 @bot.message_handler(content_types=["text"])
 def handle_text(message):
@@ -81,24 +75,22 @@ def handle_text(message):
         bot.send_chat_action(message.chat.id, 'typing')
         chat = get_chat(message.from_user.id)
         
-        # Envoi sans restrictions
+        # Envoi de la requête au nouveau modèle
         response = chat.send_message(message.text, safety_settings=SAFETY_SETTINGS)
-
+        
         if response.text:
             bot.reply_to(message, response.text)
         else:
-            bot.reply_to(message, "⚠️ L'IA a refusé de répondre malgré les réglages.")
-
+            bot.reply_to(message, "⚠️ Réponse vide du modèle 2.0.")
+            
     except Exception as e:
-        # Affiche l'erreur exacte pour débogage
-        error_info = str(e)
-        print(f"ERREUR : {error_info}")
-        bot.reply_to(message, f"⚠️ Erreur technique : {error_info[:150]}")
+        print(f"ERREUR : {e}")
+        bot.reply_to(message, f"⚠️ Erreur technique (Gemini 2.0) : {str(e)[:150]}")
 
 # ================== LANCEMENT ==================
 if __name__ == "__main__":
     bot.remove_webhook()
-    # L'URL doit correspondre à votre projet Render
+    # Assurez-vous que l'URL Render est correcte
     WEBHOOK_URL = f"https://coincartel.onrender.com/{TELEGRAM_TOKEN}"
     bot.set_webhook(url=WEBHOOK_URL)
     

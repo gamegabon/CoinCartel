@@ -9,7 +9,7 @@ TELEGRAM_TOKEN = "8226273057:AAE25ZZsviJcX5njaWAAN7N_iM1dXqVJw4o"
 GEMINI_API_KEY = "AIzaSyBlgzYmiBG-xivYsJfLJ5PRtT8nyc1oTHE"
 
 # Modèle stable pour éviter les erreurs 404 (models/...)
-MODEL_NAME = "gemini-1.5-flash" 
+MODEL_NAME = "gemini-2.0-flash" 
 
 SYSTEM_PROMPT = """
 Tu es un assistant personnel intelligent nommé 'CoinCartelBot'. 

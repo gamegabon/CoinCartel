@@ -1,15 +1,17 @@
 import os
 import time
+import threading
 import telebot
 import google.generativeai as genai
+from flask import Flask
 from telebot import types
 
-# --- VOS IDENTIFIANTS (Gardez-les secrets à l'avenir !) ---
-TELEGRAM_TOKEN = "8226273057:AAFhvZnAoc0S9OehhngBtDP8DeO12F2mxYU"
-GEMINI_API_KEY = "AIzaSyBlgzYmiBG-xivYsJfLJ5PRtT8nyc1oTHE"
+# --- CONFIGURATION DES CLÉS ---
+# Il est fortement conseillé d'utiliser les variables d'environnement sur Render
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "8226273057:AAFhvZnAoc0S9OehhngBtDP8DeO12F2mxYU")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBlgzYmiBG-xivYsJfLJ5PRtT8nyc1oTHE")
 
-# --- VOTRE PROMPT PERSONNALISÉ ---
-# Modifiez ce texte pour changer le comportement de l'IA
+# --- CONFIGURATION IA GEMINI ---
 SYSTEM_PROMPT = """
 Tu es un assistant personnel intelligent nommé 'GeminiBot'. 
 Ton ton est amical, professionnel et tu réponds toujours en français.
@@ -17,75 +19,66 @@ Tu dois aider l'utilisateur avec ses questions, coder avec lui ou simplement dis
 Utilise des emojis pour rendre la discussion vivante. ✨
 """
 
-# Configuration de l'IA Gemini
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
     system_instruction=SYSTEM_PROMPT
 )
 
-# Configuration du Bot Telegram
+# --- CONFIGURATION BOT TELEGRAM ---
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
-
-# Dictionnaire pour stocker l'historique des conversations par utilisateur
 user_chats = {}
 
 def get_chat_session(user_id):
-    """Initialise ou récupère une session de chat pour l'utilisateur."""
     if user_id not in user_chats:
         user_chats[user_id] = model.start_chat(history=[])
     return user_chats[user_id]
 
-# Commande /start
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    welcome_msg = (
-        "👋 **Bienvenue sur votre Bot Gemini !**\n\n"
-        "Je suis prêt à répondre à toutes vos questions.\n"
-        "Utilisez /reset pour effacer notre mémoire."
-    )
+    welcome_msg = "👋 **Bienvenue !** Je suis prêt à vous aider. /reset pour recommencer."
     bot.reply_to(message, welcome_msg, parse_mode='Markdown')
 
-# Commande /reset pour effacer l'historique
 @bot.message_handler(commands=['reset'])
 def reset_history(message):
     user_id = message.from_user.id
     if user_id in user_chats:
         del user_chats[user_id]
-    bot.reply_to(message, "🔄 Mémoire réinitialisée ! On repart de zéro.")
+    bot.reply_to(message, "🔄 Mémoire réinitialisée !")
 
-# Gestionnaire de messages texte
 @bot.message_handler(func=lambda message: True)
 def handle_ai_chat(message):
     user_id = message.from_user.id
-    user_text = message.text
-
-    # Indique que le bot est en train d'écrire
     bot.send_chat_action(message.chat.id, 'typing')
-
     try:
-        # Récupère la session de l'utilisateur
         chat = get_chat_session(user_id)
-        
-        # Envoie le message à Gemini
-        response = chat.send_message(user_text)
-        
-        # Répond à l'utilisateur sur Telegram
+        response = chat.send_message(message.text)
         bot.reply_to(message, response.text, parse_mode='Markdown')
-
     except Exception as e:
-        print(f"Erreur Gemini: {e}")
-        bot.reply_to(message, "⚠️ Désolé, j'ai eu un petit problème technique. Réessayez !")
+        print(f"Erreur: {e}")
+        bot.reply_to(message, "⚠️ Erreur technique. Réessayez !")
 
-# --- LANCEMENT DU BOT ---
+# --- CONFIGURATION FLASK (Pour Render) ---
+app = Flask(__name__)
+
+@app.route('/')
+def health_check():
+    return "Bot is alive!", 200
+
 def run_bot():
-    print("🚀 Le bot est en cours d'exécution...")
+    print("🚀 Bot Telegram démarré...")
     while True:
         try:
             bot.polling(none_stop=True, interval=0, timeout=20)
         except Exception as e:
-            print(f"Erreur de connexion : {e}")
-            time.sleep(5)  # Attend 5 secondes avant de tenter de se reconnecter
+            print(f"Erreur polling: {e}")
+            time.sleep(5)
 
+# --- POINT D'ENTRÉE ---
 if __name__ == "__main__":
-    run_bot()
+    # Lancement du bot dans un thread séparé
+    threading.Thread(target=run_bot, daemon=True).start()
+    
+    # Lancement de Flask sur le port requis par Render
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)

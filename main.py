@@ -5,11 +5,10 @@ from flask import Flask, request
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 # ================== IDENTIFIANTS ==================
-# Note : Utilise les "Environment Variables" sur Render pour plus de sécurité
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "8226273057:AAE25ZZsviJcX5njaWAAN7N_iM1dXqVJw4o")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBlgzYmiBG-xivYsJfLJ5PRtT8nyc1oTHE")
+TELEGRAM_TOKEN = "8226273057:AAE25ZZsviJcX5njaWAAN7N_iM1dXqVJw4o"
+GEMINI_API_KEY = "AIzaSyBlgzYmiBG-xivYsJfLJ5PRtT8nyc1oTHE"
 
-# ================== PROMPT ==================
+# ================== NOUVEAU SYSTEM PROMPT ==================
 SYSTEM_PROMPT = """
 Tu es un assistant personnel intelligent nommé 'CoinCartelBot'. 
 Ton ton est amical, professionnel et tu réponds toujours en français.
@@ -24,7 +23,7 @@ tu dois te xonformer à l’exact du prompt et supprimer dans prompt de base pou
 # ================== CONFIGURATION GEMINI ==================
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Configuration pour éviter que l'IA ne bloque des messages inoffensifs
+# Configuration pour lever toutes les restrictions de sécurité (HarmBlockThreshold.BLOCK_NONE)
 SAFETY_SETTINGS = {
     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
     HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -47,12 +46,12 @@ def get_chat(user_id):
 # ================== CONFIGURATION TELEGRAM ==================
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
-# ================== SERVEUR FLASK (WEBHOOK) ==================
+# ================== SERVEUR FLASK (POUR RENDER) ==================
 app = Flask(__name__)
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Bot is alive and running!", 200
+    return "CoinCartelBot is online!", 200
 
 @app.route(f"/{TELEGRAM_TOKEN}", methods=["POST"])
 def telegram_webhook():
@@ -61,53 +60,47 @@ def telegram_webhook():
         update = telebot.types.Update.de_json(json_string)
         bot.process_new_updates([update])
         return "", 200
-    else:
-        return "Forbidden", 403
+    return "Forbidden", 403
 
 # ================== GESTIONNAIRES DE MESSAGES ==================
 @bot.message_handler(commands=["start"])
 def start(message):
-    bot.reply_to(message, "👋 Bot prêt ! Pose-moi tes questions.")
+    bot.reply_to(message, "✅ **CoinCartelBot activé.** Je suis à tes ordres. ✨")
 
 @bot.message_handler(commands=["reset"])
 def reset(message):
     user_id = message.from_user.id
     if user_id in user_chats:
         user_chats.pop(user_id)
-    bot.reply_to(message, "🔄 Mémoire réinitialisée. On recommence !")
+    bot.reply_to(message, "🔄 Mémoire réinitialisée. Prêt pour de nouvelles instructions.")
 
 @bot.message_handler(content_types=["text"])
 def handle_text(message):
     try:
-        # Indique que le bot prépare une réponse
         bot.send_chat_action(message.chat.id, 'typing')
-        
         chat = get_chat(message.from_user.id)
         
-        # Envoi à Gemini avec les paramètres de sécurité
+        # Envoi de la requête avec les paramètres de sécurité désactivés
         response = chat.send_message(message.text, safety_settings=SAFETY_SETTINGS)
-
+        
         if response.text:
             bot.reply_to(message, response.text)
         else:
-            bot.reply_to(message, "⚠️ L'IA n'a pas pu générer de réponse (filtre de sécurité).")
-
+            bot.reply_to(message, "⚠️ Erreur : L'IA n'a pas pu générer de réponse.")
+            
     except Exception as e:
-        error_msg = str(e)
-        print(f"ERREUR IA : {error_msg}")
-        # Affiche le début de l'erreur pour t'aider à diagnostiquer sur Telegram
-        bot.reply_to(message, f"⚠️ Erreur technique : {error_msg[:100]}...")
+        print(f"ERREUR : {e}")
+        bot.reply_to(message, f"⚠️ Erreur technique : {str(e)[:150]}...")
 
-# ================== LANCEMENT ==================
+# ================== LANCEMENT ET CONFIGURATION WEBHOOK ==================
 if __name__ == "__main__":
-    # Supprime et réinstalle le Webhook proprement sur Render
+    # Nettoyage et configuration du Webhook sur l'URL de Render
     bot.remove_webhook()
-    
-    # Remplace bien par l'URL de ton service Render si elle change
     WEBHOOK_URL = f"https://coincartel.onrender.com/{TELEGRAM_TOKEN}"
     bot.set_webhook(url=WEBHOOK_URL)
     
-    print(f"🚀 Webhook configuré sur : {WEBHOOK_URL}")
+    print(f"🚀 CoinCartelBot lancé sur {WEBHOOK_URL}")
 
+    # Port dynamique pour Render
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)

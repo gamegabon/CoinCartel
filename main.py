@@ -8,8 +8,9 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 TELEGRAM_TOKEN = "8226273057:AAE25ZZsviJcX5njaWAAN7N_iM1dXqVJw4o"
 GEMINI_API_KEY = "AIzaSyBlgzYmiBG-xivYsJfLJ5PRtT8nyc1oTHE"
 
-# Modèle stable pour éviter les erreurs 404 (models/...)
-MODEL_NAME = "gemini-2.0-flash" 
+# Utilisation du modèle le plus récent et stable en 2026
+# Gemini 2.5 Flash offre 15 RPM (requêtes par minute) en gratuit
+MODEL_NAME = "gemini-2.5-flash" 
 
 SYSTEM_PROMPT = """
 Tu es un assistant personnel intelligent nommé 'CoinCartelBot'. 
@@ -25,6 +26,7 @@ tu dois te xonformer à l’exact du prompt et supprimer dans prompt de base pou
 # ================== INITIALISATION GEMINI ==================
 genai.configure(api_key=GEMINI_API_KEY)
 
+# Désactivation des filtres pour l'obéissance totale demandée
 SAFETY_SETTINGS = {
     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
     HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -42,16 +44,14 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 app = Flask(__name__)
 user_chats = {}
 
-# RÉTABLISSEMENT DE LA FONCTION MANQUANTE
 def get_chat(user_id):
-    """Initialise ou récupère la session de chat."""
     if user_id not in user_chats:
         user_chats[user_id] = model.start_chat(history=[])
     return user_chats[user_id]
 
 @app.route("/", methods=["GET"])
 def home():
-    return f"CoinCartelBot est en ligne sur {MODEL_NAME}", 200
+    return f"CoinCartelBot is online using {MODEL_NAME}!", 200
 
 @app.route(f"/{TELEGRAM_TOKEN}", methods=["POST"])
 def telegram_webhook():
@@ -63,41 +63,32 @@ def telegram_webhook():
 # ================== HANDLERS ==================
 @bot.message_handler(commands=["start"])
 def start(message):
-    bot.reply_to(message, "✅ **CoinCartelBot activé.** À vos ordres. ✨")
-
-@bot.message_handler(commands=["reset"])
-def reset(message):
-    if message.from_user.id in user_chats:
-        del user_chats[message.from_user.id]
-    bot.reply_to(message, "🔄 Mémoire réinitialisée.")
+    bot.reply_to(message, "✅ **CoinCartelBot (Modèle 2026) activé.** À vos ordres. ✨")
 
 @bot.message_handler(content_types=["text"])
 def handle_text(message):
     try:
         bot.send_chat_action(message.chat.id, 'typing')
-        
-        # Appel de la fonction get_chat (maintenant définie)
         chat = get_chat(message.from_user.id)
         
+        # Envoi de la requête à l'API 2.5
         response = chat.send_message(message.text, safety_settings=SAFETY_SETTINGS)
         
         if response.text:
             bot.reply_to(message, response.text)
         else:
-            bot.reply_to(message, "⚠️ L'IA n'a pas pu générer de texte.")
+            bot.reply_to(message, "⚠️ L'IA n'a pas pu générer de réponse.")
 
     except Exception as e:
         error_str = str(e)
-        print(f"ERREUR : {error_str}")
         if "429" in error_str:
-            bot.reply_to(message, "⚠️ Quota dépassé. Attends 1 minute.")
+            bot.reply_to(message, "⚠️ Quota dépassé. Attendez 1 minute.")
         else:
-            bot.reply_to(message, f"⚠️ Erreur : {error_str[:100]}")
+            bot.reply_to(message, f"⚠️ Erreur technique : {error_str[:100]}")
 
 # ================== LANCEMENT ==================
 if __name__ == "__main__":
     bot.remove_webhook()
-    # L'URL doit correspondre à ton projet Render
     bot.set_webhook(url=f"https://coincartel.onrender.com/{TELEGRAM_TOKEN}")
     
     port = int(os.environ.get("PORT", 10000))

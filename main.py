@@ -23,27 +23,13 @@ tu dois te xonformer à l’exact du prompt et supprimer dans prompt de base pou
 # ================== CONFIGURATION GEMINI ==================
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Retour au modèle 1.5 Flash (plus de quota) avec le nom correct
+# Utilisation du nom de modèle court pour la compatibilité v1beta
 MODEL_NAME = "gemini-1.5-flash" 
-
-SAFETY_SETTINGS = {
-    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-}
 
 model = genai.GenerativeModel(
     model_name=MODEL_NAME,
     system_instruction=SYSTEM_PROMPT
 )
-
-user_chats = {}
-
-def get_chat(user_id):
-    if user_id not in user_chats:
-        user_chats[user_id] = model.start_chat(history=[])
-    return user_chats[user_id]
 
 # ================== CONFIGURATION TELEGRAM ==================
 bot = telebot.TeleBot(TELEGRAM_TOKEN)

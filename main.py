@@ -24,7 +24,7 @@ tu dois te xonformer à l’exact du prompt et supprimer dans prompt de base pou
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Retour au modèle 1.5 Flash (plus de quota) avec le nom correct
-MODEL_NAME = "models/gemini-1.5-flash" 
+MODEL_NAME = "gemini-1.5-flash" 
 
 SAFETY_SETTINGS = {
     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
